@@ -1,0 +1,19 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: {python: ["3.11", "3.13"]}
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --python ${{ matrix.python }}
+      - run: uv run ruff check src tests bench
+      - run: uv run pytest -q
+      - name: overshoot smoke benchmark
+        run: uv sync --extra bench && uv run python bench/overshoot.py --quick --modes posthoc,reserve_p95_truncate

@@ -1,0 +1,12 @@
+# Runs against `flowgate mock` on localhost: no API keys needed.
+listen: {host: 127.0.0.1, port: 8080}
+redis_url: redis://localhost:6379/0
+budget: {accounting: reserve, estimator: p95, on_overrun: truncate}
+upstreams:
+  mock: {kind: openai, base_url: http://127.0.0.1:9001}
+routes:
+  demo: {targets: [{upstream: mock, model: mock-1}]}
+pricing:
+  mock-1: {input: 0.15, output: 0.60}
+tenants:
+  alpha: {api_keys: [sk-alpha], budget: {window_s: 60, total: 50000}}

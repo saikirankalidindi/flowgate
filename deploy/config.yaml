@@ -1,0 +1,19 @@
+# docker compose demo: 3 replicas, 2 mock upstreams, shared Redis.
+listen: {host: 0.0.0.0, port: 8080}
+redis_url: redis://redis:6379/0
+budget: {accounting: reserve, estimator: p95, on_overrun: truncate}
+upstreams:
+  mock-a: {kind: openai, base_url: http://mock-a:9001}
+  mock-b: {kind: anthropic, base_url: http://mock-b:9001}
+routes:
+  demo:
+    targets:
+      - {upstream: mock-a, model: mock-large}
+      - {upstream: mock-b, model: mock-small}
+pricing:
+  mock-large: {input: 2.5, output: 10.0}
+  mock-small: {input: 0.25, output: 1.25}
+tenants:
+  alpha: {api_keys: [sk-alpha], budget: {window_s: 60, total: 50000}}
+  beta:  {api_keys: [sk-beta],  budget: {window_s: 60, total: 20000},
+          rate_limit: {requests: 20, per_s: 1}}

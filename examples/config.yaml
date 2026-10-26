@@ -1,0 +1,38 @@
+# Minimal FlowGate config. Every key not shown has a default; see src/flowgate/config.py.
+listen: {host: 0.0.0.0, port: 8080}
+redis_url: redis://localhost:6379/0
+
+budget:
+  accounting: reserve     # reserve | posthoc
+  estimator: p95          # max_tokens | p95 | fixed
+  on_overrun: truncate    # truncate (never overshoot) | allow (bounded overshoot)
+  default_max_tokens: 4096
+
+breaker: {failure_threshold: 5, cooldown_s: 10}
+
+upstreams:
+  openai:    {kind: openai, base_url: https://api.openai.com, api_key_env: OPENAI_API_KEY}
+  anthropic: {kind: anthropic, base_url: https://api.anthropic.com, api_key_env: ANTHROPIC_API_KEY}
+  vllm:      {kind: openai, base_url: http://vllm:8000}
+
+routes:
+  # Clients ask for "default"; FlowGate tries each target in order on 429 / 5xx / timeout.
+  default:
+    targets:
+      - {upstream: openai, model: gpt-4o-mini}
+      - {upstream: anthropic, model: claude-haiku-4-5}
+      - {upstream: vllm, model: meta-llama/Llama-3.1-8B-Instruct}
+
+pricing:  # USD per 1M tokens, for cost attribution
+  gpt-4o-mini: {input: 0.15, output: 0.60}
+  claude-haiku-4-5: {input: 1.00, output: 5.00}
+
+tenants:
+  search-team:
+    api_keys: [sk-fg-search-change-me]
+    budget: {window_s: 3600, total: 2000000}
+    rate_limit: {algorithm: sliding_window, requests: 50, per_s: 1}
+  batch-jobs:
+    api_keys: [sk-fg-batch-change-me]
+    budget: {window_s: 86400, input: 50000000, output: 10000000}
+    rate_limit: {algorithm: token_bucket, requests: 20, per_s: 1, burst: 100}

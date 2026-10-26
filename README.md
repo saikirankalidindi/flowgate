@@ -1,7 +1,7 @@
 # Hardcap
 
 **A self-hosted LLM gateway that enforces per-tenant token budgets across replicas without
-overshooting, and publishes the load tests to prove it.**
+overshooting, and publishes the load tests to prove it.** · [hardcap.saikirankalidindi.com](https://hardcap.saikirankalidindi.com)
 
 Most gateways count tokens *after* a response finishes and reject new requests once
 `used >= limit`. With 128 streams in flight per tenant across 3 replicas, that lets a tenant

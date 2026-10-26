@@ -58,3 +58,17 @@ def test_config_validation():
         "tenants": {"t": {"api_keys": ["k"], "budget": {"total": 10}}},
     })
     assert cfg.tenant_by_key()["k"].budget.total == 10
+
+
+def test_stream_counting_includes_reasoning_and_tool_calls():
+    from hardcap.providers import _delta_tokens
+
+    def chunk(**delta):
+        return {"choices": [{"index": 0, "delta": delta}]}
+
+    assert _delta_tokens(chunk(content="a" * 40)) == 10
+    # reasoning models stream billed output outside `content`; it must count against the budget
+    assert _delta_tokens(chunk(reasoning="a" * 40, channel="analysis")) == 10
+    assert _delta_tokens(chunk(reasoning_content="a" * 40)) == 10
+    assert _delta_tokens(chunk(tool_calls=[{"index": 0, "function": {"arguments": "a" * 40}}])) == 10
+    assert _delta_tokens(chunk(role="assistant")) == 0

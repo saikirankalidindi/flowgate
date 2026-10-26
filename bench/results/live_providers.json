@@ -1,0 +1,77 @@
+{
+  "machine": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "cores": 12,
+    "python": "3.13.15",
+    "os": "Linux 7.0.0-38-generic"
+  },
+  "models": {
+    "groq": "openai/gpt-oss-20b"
+  },
+  "checks": [
+    {
+      "provider": "groq",
+      "check": "unary: response + ledger equals provider usage",
+      "ok": true,
+      "provider_usage": {
+        "queue_time": 0.350276681,
+        "prompt_tokens": 83,
+        "prompt_time": 0.004665572,
+        "completion_tokens": 214,
+        "completion_time": 0.322862768,
+        "total_tokens": 297,
+        "total_time": 0.32752834,
+        "completion_tokens_details": {
+          "reasoning_tokens": 198
+        }
+      },
+      "ledger_charged": {
+        "in": 83,
+        "out": 214
+      },
+      "status": 200,
+      "error": null
+    },
+    {
+      "provider": "groq",
+      "check": "stream: response + ledger equals provider usage",
+      "ok": true,
+      "provider_usage": {
+        "queue_time": 0.350078989,
+        "prompt_tokens": 83,
+        "prompt_time": 0.004093025,
+        "completion_tokens": 270,
+        "completion_time": 0.283488792,
+        "total_tokens": 353,
+        "total_time": 0.287581817,
+        "completion_tokens_details": {
+          "reasoning_tokens": 252
+        }
+      },
+      "ledger_charged": {
+        "in": 83,
+        "out": 270
+      },
+      "status": 200,
+      "error": null
+    },
+    {
+      "provider": "groq",
+      "check": "stream truncated at a 60-token output budget",
+      "ok": true,
+      "ledger_output_tokens": 49,
+      "limit": 60,
+      "finish": "length",
+      "status": 200,
+      "error": null
+    },
+    {
+      "provider": "groq",
+      "check": "dead primary falls back to the provider",
+      "ok": true,
+      "served_by": "groq",
+      "status": 200,
+      "error": null
+    }
+  ]
+}

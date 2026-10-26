@@ -32,7 +32,7 @@ the budget, ends early with `finish_reason: "length"`.
 ## What it does
 
 - **OpenAI-compatible endpoint** (`/v1/chat/completions`, streaming and not) in front of
-  OpenAI-compatible upstreams (OpenAI, vLLM, …) and Anthropic (translated both ways)
+  OpenAI-compatible upstreams (OpenAI, Groq, vLLM, …) and Anthropic (translated both ways)
 - **Token budgets per tenant**: input, output and total, per fixed window, enforced across any
   number of stateless replicas through Redis Lua scripts
 - **Reserve → extend → settle** accounting with pluggable estimators (`max_tokens`, `fixed`,
@@ -143,15 +143,35 @@ Primary → secondary route, 200 streaming req/s, breaker threshold 5, cooldown 
 A stream that has already sent bytes to the client can't be retried transparently, by any
 gateway. Those 26 got an SSE error event.
 
+### Against a real provider
+
+The benchmarks above use a mock upstream so they can measure overshoot exactly. To check the
+same paths against a real API, [`bench/live_providers.py`](bench/live_providers.py) runs through
+Hardcap to Groq (`openai/gpt-oss-20b`, a reasoning model):
+
+| Check | Result |
+|---|---|
+| Unary: ledger charge vs provider-reported usage | 83 in / 214 out, **exact match** |
+| Streaming: ledger charge vs provider-reported usage | 83 in / 270 out, **exact match** |
+| Stream on a 60-token output budget (`max_tokens` 400) | truncated, `finish_reason: "length"`, 49 tokens charged |
+| Dead primary → Groq fallback | served by Groq |
+
+The first run of this check found a real bug. Reasoning models stream most of their output
+in a `reasoning` field before any `content` appears, and Hardcap counted only `content`. So a
+stream on a 60-token budget ran to 400 billed tokens. Streams now count reasoning, thinking and
+tool-call deltas too. It hasn't been run against OpenAI or Anthropic directly yet; the script
+supports both (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
+
 ## Reproduce
 
 ```bash
 uv sync --extra bench
 docker run -d -p 6379:6379 redis:7-alpine
-uv run pytest                        # 28 tests, including end-to-end through mock upstreams
+uv run pytest                        # 29 tests, including end-to-end through mock upstreams
 uv run python bench/overshoot.py     # ~15 min; --quick for a smoke run
 uv run python bench/overhead.py --gateway-workers 5 --rates 1000,2500,3500,5000
 uv run python bench/failover.py
+uv run python bench/live_providers.py  # needs GROQ_API_KEY, OPENAI_API_KEY or ANTHROPIC_API_KEY
 uv run python bench/plot.py          # regenerates docs/img/*.png from bench/results/*.json
 ```
 

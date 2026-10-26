@@ -47,12 +47,23 @@ async def _sse_data(resp: aiohttp.ClientResponse) -> AsyncIterator[bytes]:
             yield line[5:].strip()
 
 
+# Delta fields that carry generated (billed) output, not just the visible answer. Reasoning
+# models can spend most of their output in `reasoning` before any `content` appears; counting
+# only `content` would let them run unreserved straight past the budget.
+_DELTA_TEXT_FIELDS = ("content", "reasoning", "reasoning_content")
+
+
 def _delta_tokens(chunk: dict[str, Any]) -> int:
     n = 0
     for c in chunk.get("choices") or ():
         d = c.get("delta") or {}
-        if d.get("content"):
-            n += count_text_tokens(d["content"])
+        for f in _DELTA_TEXT_FIELDS:
+            if isinstance(d.get(f), str) and d[f]:
+                n += count_text_tokens(d[f])
+        for tc in d.get("tool_calls") or ():
+            args = (tc.get("function") or {}).get("arguments")
+            if args:
+                n += count_text_tokens(args)
     return n
 
 
@@ -165,9 +176,15 @@ class AnthropicAdapter:
                 prompt_tokens = int((m.get("usage") or {}).get("input_tokens", 0))
                 yield StreamEvent(data=sse(chunk({"role": "assistant", "content": ""})))
             elif t == "content_block_delta":
-                text = (ev.get("delta") or {}).get("text", "")
+                d = ev.get("delta") or {}
+                text = d.get("text", "")
                 if text:
                     yield StreamEvent(data=sse(chunk({"content": text})), tokens=count_text_tokens(text))
+                else:
+                    # thinking and tool-input deltas aren't forwarded, but they are billed output
+                    other = d.get("thinking") or d.get("partial_json") or ""
+                    if other:
+                        yield StreamEvent(tokens=count_text_tokens(other))
             elif t == "message_delta":
                 out = int((ev.get("usage") or {}).get("output_tokens", 0))
                 finish = _STOP_REASONS.get((ev.get("delta") or {}).get("stop_reason"), "stop")

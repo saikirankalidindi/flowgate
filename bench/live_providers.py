@@ -1,7 +1,7 @@
-"""Live check against real providers: OpenAI and Anthropic, streaming and not, through Hardcap.
+"""Live check against real providers (OpenAI, Anthropic, Groq), streaming and not, through Hardcap.
 
 Costs a few cents. Keys come from the environment or from ~/.config/hardcap/keys.env
-(lines like OPENAI_API_KEY=...); they are passed to the gateway process through its
+(lines like GROQ_API_KEY=...); they are passed to the gateway process through its
 environment and never written to disk or printed.
 
     uv run python bench/live_providers.py
@@ -29,9 +29,12 @@ PORT = 8501
 MODELS = {
     "openai": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
     "anthropic": os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5"),
+    "groq": os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
 }
-BASES = {"openai": "https://api.openai.com", "anthropic": "https://api.anthropic.com"}
-ENV_KEYS = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+BASES = {"openai": "https://api.openai.com", "anthropic": "https://api.anthropic.com",
+         "groq": "https://api.groq.com/openai"}
+ENV_KEYS = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "groq": "GROQ_API_KEY"}
+KINDS = {"openai": "openai", "anthropic": "anthropic", "groq": "openai"}
 
 
 def load_keys() -> None:
@@ -45,7 +48,7 @@ def load_keys() -> None:
 
 
 def config(providers: list[str], prefix: str) -> dict:
-    ups = {p: {"kind": p, "base_url": BASES[p], "api_key_env": ENV_KEYS[p], "read_timeout_s": 60}
+    ups = {p: {"kind": KINDS[p], "base_url": BASES[p], "api_key_env": ENV_KEYS[p], "read_timeout_s": 60}
            for p in providers}
     ups["dead"] = {"kind": "openai", "base_url": "http://127.0.0.1:9", "connect_timeout_s": 1}
     routes = {p: {"targets": [{"upstream": p, "model": MODELS[p]}]} for p in providers}
@@ -61,7 +64,7 @@ def config(providers: list[str], prefix: str) -> dict:
             "upstreams": ups, "routes": routes, "tenants": tenants}
 
 
-async def call(s, route, key, *, stream, max_tokens=64, prompt="Say hello in five words."):
+async def call(s, route, key, *, stream, max_tokens=300, prompt="Say hello in five words."):
     body = {"model": route, "stream": stream, "max_tokens": max_tokens,
             "messages": [{"role": "system", "content": "Be concise."},
                          {"role": "user", "content": prompt}]}
@@ -148,9 +151,10 @@ async def run(providers: list[str]) -> list[dict]:
 
 def main() -> None:
     load_keys()
-    providers = [p for p in ("openai", "anthropic") if os.environ.get(ENV_KEYS[p])]
+    providers = [p for p in MODELS if os.environ.get(ENV_KEYS[p])]
     if not providers:
-        raise SystemExit("set OPENAI_API_KEY and/or ANTHROPIC_API_KEY (env or ~/.config/hardcap/keys.env)")
+        raise SystemExit("set OPENAI_API_KEY, ANTHROPIC_API_KEY or GROQ_API_KEY "
+                         "(env or ~/.config/hardcap/keys.env)")
     checks = asyncio.run(run(providers))
     for c in checks:
         print(f"{'PASS' if c['ok'] else 'FAIL'}  {c['provider']:9s} {c['check']}"

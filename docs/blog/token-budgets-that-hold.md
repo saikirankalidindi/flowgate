@@ -156,6 +156,23 @@ A budget gateway also has to route around a failing provider. With a primary →
 
 ![Failover timeline](https://raw.githubusercontent.com/saikirankalidindi/hardcap/main/docs/img/failover.png)
 
+## The bug the live test found
+
+The benchmarks use a mock upstream, because measuring overshoot exactly needs ground truth. Before
+release I also ran the same paths against a real API (Groq, `gpt-oss-20b`). Ledger charges
+matched the provider's reported usage to the token, on unary and streaming calls. The truncation
+check failed: a stream on a 60-token output budget ran to **400** billed tokens.
+
+The model was a reasoning model. Reasoning models stream their thinking in a separate
+`delta.reasoning` field before any `delta.content` appears, and Hardcap counted only `content`.
+For the whole reasoning phase, the gateway saw zero tokens. It never asked to extend the
+reservation and never cut the stream, so the budget was right back to "count it afterwards".
+The mock upstream couldn't catch this: it only ever sent `content`.
+
+The fix counts every delta the provider bills for: `reasoning`, `reasoning_content`, Anthropic
+`thinking` blocks and tool-call arguments. Rerun: truncated after 49 tokens. The lesson
+generalizes. **Any part of the output the gateway doesn't count is output with no budget.**
+
 ## What I'd tell someone building this
 
 1. **Measure overshoot against the provider, not your ledger.** In my runs the ledger and the
@@ -167,6 +184,9 @@ A budget gateway also has to route around a failing provider. With a primary →
 4. **Publish the uncomfortable numbers.** Where it saturates, what a crash loses, which estimate
    the benchmark doesn't test (input tokens, counted with a heuristic that the mock upstream
    shares). A benchmark that only shows wins doesn't tell anyone much.
+
+5. **Test against a real provider, even when the mock is the better benchmark.** The mock gave
+   exact ground truth, and it also shared my assumptions about what a stream looks like.
 
 Everything here reproduces with one command per benchmark. The raw JSON, the machine specs and the
 parameters are committed next to the charts:

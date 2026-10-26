@@ -4,7 +4,7 @@ import uuid
 import pytest
 import redis.asyncio as aioredis
 
-REDIS_URL = os.environ.get("FLOWGATE_TEST_REDIS", "redis://localhost:6379/15")
+REDIS_URL = os.environ.get("HARDCAP_TEST_REDIS", "redis://localhost:6379/15")
 
 
 @pytest.fixture

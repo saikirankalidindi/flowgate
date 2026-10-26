@@ -1,4 +1,4 @@
-# Runs against `flowgate mock` on localhost: no API keys needed.
+# Runs against `hardcap mock` on localhost: no API keys needed.
 listen: {host: 127.0.0.1, port: 8080}
 redis_url: redis://localhost:6379/0
 budget: {accounting: reserve, estimator: p95, on_overrun: truncate}

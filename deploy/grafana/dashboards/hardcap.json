@@ -1,6 +1,6 @@
 {
- "title": "FlowGate",
- "uid": "flowgate",
+ "title": "Hardcap",
+ "uid": "hardcap",
  "schemaVersion": 39,
  "time": {
   "from": "now-30m",
@@ -24,7 +24,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (tenant) (rate(flowgate_cost_usd_total[5m])) * 3600",
+     "expr": "sum by (tenant) (rate(hardcap_cost_usd_total[5m])) * 3600",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -46,7 +46,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (tenant, direction) (rate(flowgate_tokens_total[1m]))",
+     "expr": "sum by (tenant, direction) (rate(hardcap_tokens_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -68,7 +68,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (status) (rate(flowgate_requests_total[1m]))",
+     "expr": "sum by (status) (rate(hardcap_requests_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -90,7 +90,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (reason) (rate(flowgate_rejections_total[1m]))",
+     "expr": "sum by (reason) (rate(hardcap_rejections_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -112,7 +112,7 @@
    },
    "targets": [
     {
-     "expr": "histogram_quantile(0.99, sum by (le) (rate(flowgate_admission_seconds_bucket[1m]))) * 1000",
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(hardcap_admission_seconds_bucket[1m]))) * 1000",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -134,7 +134,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (upstream, kind) (rate(flowgate_upstream_errors_total[1m]))",
+     "expr": "sum by (upstream, kind) (rate(hardcap_upstream_errors_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -156,7 +156,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (route, upstream) (rate(flowgate_fallbacks_total[1m]))",
+     "expr": "sum by (route, upstream) (rate(hardcap_fallbacks_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }
@@ -178,7 +178,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (tenant) (rate(flowgate_truncations_total[1m]))",
+     "expr": "sum by (tenant) (rate(hardcap_truncations_total[1m]))",
      "refId": "A",
      "legendFormat": "__auto"
     }

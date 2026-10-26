@@ -22,7 +22,7 @@ LABELS = {
     "posthoc": "count after the fact (typical gateway)",
     "reserve_max_tokens": "reserve max_tokens",
     "reserve_p95_allow": "reserve p95, allow overrun",
-    "reserve_p95_truncate": "reserve p95, truncate (FlowGate default)",
+    "reserve_p95_truncate": "reserve p95, truncate (Hardcap default)",
 }
 
 plt.rcParams.update({
@@ -98,7 +98,7 @@ def overhead() -> None:
     ax.set_xticks(range(len(rates)), [f"{int(r):,} req/s" for r in rates])
     ax.set_yscale("log")
     ax.set_ylabel("latency (ms, log scale)")
-    ax.set_title("Latency: direct to upstream vs. through FlowGate (one laptop)")
+    ax.set_title("Latency: direct to upstream vs. through Hardcap (one laptop)")
     ax.legend(frameon=False, fontsize=9, ncol=4, loc="upper left")
     ax.set_ylim(0.2, ax.get_ylim()[1] * 4)
     fig.tight_layout()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
-from flowgate.config import BudgetPolicy
+from hardcap.config import BudgetPolicy
 
 
 def count_text_tokens(text: str) -> int:

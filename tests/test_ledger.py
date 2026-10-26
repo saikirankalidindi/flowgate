@@ -1,7 +1,7 @@
 import asyncio
 
-from flowgate.config import BudgetPolicy, RateLimit, Tenant, TenantBudget
-from flowgate.ledger import BudgetLedger
+from hardcap.config import BudgetPolicy, RateLimit, Tenant, TenantBudget
+from hardcap.ledger import BudgetLedger
 
 
 def tenant(total=0, output=0, input_=0, rl=None, window_s=3600):

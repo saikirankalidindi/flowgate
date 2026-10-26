@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardcap: token budgets that hold</title>
+<meta name="description" content="A self-hosted LLM gateway that enforces per-tenant token budgets across replicas without overshooting, with published load tests to prove it. Open source, Apache-2.0.">
+<meta property="og:title" content="Hardcap: token budgets that hold">
+<meta property="og:description" content="Most LLM gateways let a tenant spend 3.3× its token budget under concurrency. Hardcap holds it to 0.03%. Open source, with the benchmark.">
+<meta property="og:image" content="https://hardcap.vercel.app/assets/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:Geist;src:url(assets/geist-latin.woff2) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:GeistMono;src:url(assets/geist-mono-latin.woff2) format("woff2");font-weight:100 900;font-display:swap}
+:root{
+  --bg:#0c0c0c;--panel:#141414;--panel-2:#1a1a19;--line:#262626;--line-2:#383838;
+  --fg:#f5f5f2;--fg-2:#b4b3ae;--muted:#898781;--accent:#ff4f00;--good:#3ccf96;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--grid:#2c2c2a;
+  --mono:GeistMono,ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.mono{font-family:var(--mono)}
+.label{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.accent{color:var(--accent)}
+/* nav */
+nav{position:sticky;top:0;z-index:10;background:rgba(12,12,12,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:600;letter-spacing:-.01em}
+.brand svg{display:block}
+nav ul{display:flex;gap:26px;list-style:none;font-size:14px;color:var(--fg-2)}
+nav ul a{text-decoration:none}nav ul a:hover{color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;padding:9px 16px;font-size:14px;text-decoration:none;transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--fg-2)}
+.btn.primary{background:var(--fg);color:#111;border-color:var(--fg);font-weight:600}
+.btn.primary:hover{background:#fff}
+/* hero */
+.hero{padding:88px 0 56px}
+.hero h1{font-size:clamp(44px,7vw,84px);line-height:1;letter-spacing:-.045em;font-weight:600;max-width:12ch}
+.hero p.lede{margin-top:24px;font-size:clamp(17px,1.4vw,20px);color:var(--fg-2);max-width:56ch}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px;align-items:center}
+.install{display:inline-flex;align-items:center;gap:12px;font-family:var(--mono);font-size:14px;background:var(--panel);border:1px solid var(--line-2);border-radius:999px;padding:9px 10px 9px 18px}
+.install button{font:inherit;font-size:12px;background:var(--panel-2);color:var(--fg-2);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px;cursor:pointer}
+.install button:hover{color:var(--fg)}
+.pill{display:inline-flex;gap:8px;align-items:center;font-family:var(--mono);font-size:12px;color:var(--fg-2);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;margin-bottom:26px;text-decoration:none}
+.pill b{color:var(--good);font-weight:500}
+/* replay */
+.replay{margin-top:56px;border:1px solid var(--line-2);border-radius:20px;background:var(--panel);overflow:hidden}
+.replay-head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid var(--line)}
+.replay-head .meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap}
+.replay-head .meta b{color:var(--fg);font-weight:500}
+.replay-body{display:grid;grid-template-columns:1fr 1fr}
+.lane{padding:24px 22px 26px}
+.lane+.lane{border-left:1px solid var(--line)}
+.lane h3{font-family:var(--mono);font-size:13px;letter-spacing:.05em;font-weight:500;display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:space-between}
+.lane .sub{font-size:13.5px;color:var(--fg-2);margin-top:4px;min-height:42px}
+.meter{position:relative;height:16px;border-radius:8px;background:#1f1f1f;margin-top:24px}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;width:0}
+.meter .limit{position:absolute;top:-7px;bottom:-7px;width:2px;background:var(--fg)}
+.meter .limit::after{content:"budget";position:absolute;top:-18px;left:-20px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.big{font-family:var(--mono);font-size:clamp(34px,4.4vw,52px);letter-spacing:-.03em;margin-top:18px;font-variant-numeric:tabular-nums}
+.big small{font-size:14px;color:var(--muted);letter-spacing:0;margin-left:6px}
+.replay-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 22px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.replay-foot button{font:inherit;font-family:var(--mono);font-size:12px;color:var(--fg-2);background:transparent;border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;cursor:pointer}
+/* sections */
+section{padding:96px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(30px,3.6vw,46px);letter-spacing:-.035em;line-height:1.08;font-weight:600;max-width:20ch;margin-top:14px}
+.intro{color:var(--fg-2);font-size:17px;max-width:62ch;margin-top:18px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line)}
+.stat{padding:30px 22px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:none}
+.stat .n{font-family:var(--mono);font-size:30px;letter-spacing:-.02em}
+.stat .d{color:var(--fg-2);font-size:14px;margin-top:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:44px}
+.card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:22px}
+.card .step{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.card h3{font-size:19px;letter-spacing:-.015em;margin-top:10px;font-weight:600}
+.card p{color:var(--fg-2);font-size:14.5px;margin-top:8px}
+pre{font-family:var(--mono);font-size:13px;line-height:1.65;background:#0c0c0c;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;color:var(--fg-2);margin-top:14px}
+pre .k{color:var(--fg)}pre .c{color:#6b6a66}pre .g{color:var(--good)}pre .a{color:#ff7a3d}
+.invariant{margin-top:22px;border:1px solid var(--line-2);border-radius:16px;padding:22px;display:flex;flex-wrap:wrap;gap:12px 32px;align-items:center;background:var(--panel)}
+.invariant .eq{font-family:var(--mono);font-size:clamp(20px,2.4vw,28px)}
+.invariant p{color:var(--fg-2);font-size:14.5px;max-width:58ch}
+/* chart */
+.chart-card{margin-top:40px;border:1px solid var(--line);border-radius:18px;background:var(--panel-2);padding:22px 22px 16px}
+.chart-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--fg-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.tabs{display:inline-flex;border:1px solid var(--line-2);border-radius:999px;padding:3px}
+.tabs button{font:inherit;font-size:13px;color:var(--fg-2);background:transparent;border:0;border-radius:999px;padding:5px 12px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--fg);color:#111}
+#chart{width:100%;height:auto;display:block;margin-top:10px}
+.tip{position:absolute;pointer-events:none;background:#0c0c0c;border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font-size:12.5px;min-width:220px;opacity:0;transition:opacity .12s}
+.tip .row{display:flex;justify-content:space-between;gap:16px;margin-top:4px;color:var(--fg-2)}
+.tip .row b{font-family:var(--mono);font-weight:500;color:var(--fg)}
+table{width:100%;border-collapse:collapse;margin-top:28px;font-size:14.5px}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tr.hl td{color:var(--fg);background:rgba(60,207,150,.06)}
+tr.hl td:first-child{box-shadow:inset 2px 0 0 var(--good)}
+.note{color:var(--muted);font-size:13px;margin-top:14px;max-width:80ch}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:44px;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.features div{padding:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+.features div:nth-child(3n){border-right:none}
+.features div:nth-last-child(-n+3){border-bottom:none}
+.features h3{font-size:16.5px;font-weight:600;letter-spacing:-.01em}
+.features p{color:var(--fg-2);font-size:14px;margin-top:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:40px}
+.fit h3{font-size:16px;font-weight:600}
+.fit ul{list-style:none;margin-top:10px}
+.fit li{color:var(--fg-2);font-size:14.5px;padding:8px 0;border-top:1px solid var(--line)}
+.fit li b{color:var(--fg);font-weight:500}
+.qs-tabs{margin-top:36px}
+footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:13.5px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between}
+@media (max-width:860px){
+  nav ul{display:none}
+  .replay-body,.two{grid-template-columns:1fr}
+  .lane+.lane{border-left:none;border-top:1px solid var(--line)}
+  .stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:none}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .grid3,.features{grid-template-columns:1fr}
+  .stat{padding:22px 14px}.stat .n{font-size:20px!important;white-space:nowrap}
+  .features div{border-right:none!important;border-bottom:1px solid var(--line)!important}
+  .features div:last-child{border-bottom:none!important}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="#f5f5f2" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx="1.5" fill="#3ccf96"/><rect x="4" y="9" width="14" height="1.8" rx=".9" fill="#ff4f00"/></svg>Hardcap</a>
+  <ul><li><a href="#problem">Problem</a></li><li><a href="#how">How it works</a></li><li><a href="#benchmarks">Benchmarks</a></li><li><a href="#quickstart">Quickstart</a></li></ul>
+  <a class="btn" href="https://github.com/saikirankalidindi/hardcap"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <a class="pill" href="https://github.com/saikirankalidindi/hardcap/blob/main/CHANGELOG.md"><b>v0.1</b> Open source · Apache-2.0 · self-hosted</a>
+  <h1>Token budgets that <span class="accent">hold.</span></h1>
+  <p class="lede">Hardcap is an LLM gateway that enforces per-tenant token budgets across any number of replicas without overshooting. The load tests that prove it ship with the code.</p>
+  <div class="cta">
+    <span class="install"><span>$ pip install hardcap</span><button type="button" data-copy="pip install hardcap">Copy</button></span>
+    <a class="btn primary" href="#quickstart">Quickstart</a>
+    <a class="btn" href="#benchmarks">See the benchmark</a>
+  </div>
+
+  <div class="replay" aria-label="Replay of the overshoot benchmark">
+    <div class="replay-head">
+      <span class="label">Benchmark replay · 128 concurrent streams per tenant</span>
+      <span class="meta"><span>Replicas <b>3</b></span><span>Budget <b>20,000 tokens</b></span><span>max_tokens <b>1024</b></span></span>
+    </div>
+    <div class="replay-body">
+      <div class="lane">
+        <h3><span>TYPICAL GATEWAY</span><span style="color:var(--muted)">count after the fact</span></h3>
+        <p class="sub">Admits while <span class="mono">used &lt; limit</span>, charges when each stream ends. Every in-flight stream is invisible to the budget.</p>
+        <div class="meter"><div class="fill" id="fillA" style="background:var(--accent);width:95.5%"></div><div class="limit" id="limA"></div></div>
+        <div class="big" id="numA">334%<small>of budget</small></div>
+      </div>
+      <div class="lane">
+        <h3><span>HARDCAP</span><span style="color:var(--muted)">reserve → extend → settle</span></h3>
+        <p class="sub">Reserves before the call, grows the reservation while the stream runs, and ends a stream cleanly when the budget is spent.</p>
+        <div class="meter"><div class="fill" id="fillB" style="background:var(--good);width:28.58%"></div><div class="limit" id="limB"></div></div>
+        <div class="big" id="numB">100.03%<small>of budget</small></div>
+      </div>
+    </div>
+    <div class="replay-foot"><span>Worst tenant across 8 tenants × 3 runs. Ground truth is what the upstream generated, not the gateway's own count. This replays the published numbers; it is not a live run.</span><button type="button" id="replayBtn">Replay</button></div>
+  </div>
+</div></header>
+
+<div class="wrap"><div class="stats">
+  <div class="stat"><div class="n" style="font-size:24px;padding-top:4px"><span class="accent">+234%</span> → <span style="color:var(--good)">+0.03%</span></div><div class="d">worst-case overshoot at 128 streams per tenant</div></div>
+  <div class="stat"><div class="n">+1.6 ms</div><div class="d">added p50 latency at 2,500 req/s (p99 +3.2 ms)</div></div>
+  <div class="stat"><div class="n">0 / 4,000</div><div class="d">requests failed while the primary upstream returned 503s</div></div>
+  <div class="stat"><div class="n">0</div><div class="d">reserved tokens leaked across every benchmark run</div></div>
+</div></div>
+
+<section id="problem"><div class="wrap">
+  <span class="label">The problem</span>
+  <h2>Counting tokens after the response is a budget in name only.</h2>
+  <p class="intro">An LLM request can cost 10 tokens or 100,000, and output length is only known when the stream ends. So most gateways check <span class="mono">used &lt; limit</span> on admission and add the real count afterwards. Between those two moments, a request is invisible to the budget: with 128 streams in flight, all 128 get admitted while the tenant still looks under budget. More replicas make it worse.</p>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <span class="label">How it works</span>
+  <h2>Authorize, then capture, the way card payments do.</h2>
+  <p class="intro">Each step is a single Lua script in Redis. Redis runs one script at a time, so for any tenant the checks and updates are serialized, however many gateway replicas send them.</p>
+  <div class="grid3">
+    <div class="card"><div class="step">01 · admit.lua</div><h3>Reserve before the call</h3><p>Checks the request rate, reclaims reservations left by crashed replicas, and reserves input plus estimated output tokens. One round trip; a rejected request costs nothing.</p>
+<pre><span class="c">-- atomic, per tenant</span>
+<span class="k">if</span> used + reserved + est <span class="a">&gt;</span> limit
+  <span class="k">then return</span> busy | exceeded
+reserved += est</pre></div>
+    <div class="card"><div class="step">02 · extend.lua</div><h3>Grow it while streaming</h3><p>The estimate is the rolling p95 of real output lengths. As a stream nears its reservation, the gateway asks for 64 more tokens. If the budget can't cover them, the stream ends with <span class="mono">finish_reason: "length"</span>.</p>
+<pre><span class="c">-- every 64 tokens</span>
+<span class="k">if</span> used + reserved + 64 <span class="a">&gt;</span> limit
+  <span class="k">then</span> truncate
+reserved += 64</pre></div>
+    <div class="card"><div class="step">03 · settle.lua</div><h3>Charge the real count</h3><p>The reservation is swapped for the usage the provider reported, and cost is attributed per tenant, route and model in Prometheus.</p>
+<pre><span class="c">-- when the response ends</span>
+reserved -= reservation
+used     += <span class="g">actual</span></pre></div>
+  </div>
+  <div class="invariant"><span class="eq">used + reserved <span class="accent">≤</span> limit</span><p>Checked inside every admit and extend. Settlement swaps a reservation for the real count, so the budget can only be exceeded by tokens generated without a reservation, and truncate mode allows none.</p></div>
+</div></section>
+
+<section id="benchmarks"><div class="wrap">
+  <span class="label">Benchmarks</span>
+  <h2>Four ways to account for tokens, measured.</h2>
+  <p class="intro">8 tenants × 3 runs per point, a 20,000-token budget each, log-normal output lengths. Each tenant's clients stream requests until the gateway says the budget is spent.</p>
+  <div class="chart-card" style="position:relative">
+    <div class="chart-top">
+      <div class="legend" id="legend"></div>
+      <div class="tabs" role="group" aria-label="Metric"><button type="button" aria-pressed="true" data-metric="1">Worst overshoot</button><button type="button" aria-pressed="false" data-metric="2">Budget usable</button></div>
+    </div>
+    <svg id="chart" viewBox="0 0 1040 380" role="img" aria-label="Line chart of budget overshoot by concurrency for four accounting modes"></svg>
+    <div class="tip" id="tip"></div>
+  </div>
+  <table>
+    <thead><tr><th>At 128 streams per tenant</th><th class="num">Worst overshoot</th><th class="num">Budget usable</th><th class="num">Truncated / tenant</th></tr></thead>
+    <tbody>
+      <tr><td>Count after the fact (typical gateway)</td><td class="num accent">+234.3%</td><td class="num">100%</td><td class="num">0</td></tr>
+      <tr><td>Reserve <span class="mono">max_tokens</span></td><td class="num">never over</td><td class="num">95.6%</td><td class="num">0</td></tr>
+      <tr><td>Reserve rolling p95, allow overrun</td><td class="num">+7.9%</td><td class="num">98.7%</td><td class="num">0</td></tr>
+      <tr class="hl"><td>Reserve rolling p95, truncate <span style="color:var(--muted)">(Hardcap default)</span></td><td class="num">+0.03%</td><td class="num">98.7%</td><td class="num">1.2</td></tr>
+    </tbody>
+  </table>
+  <p class="note">The +0.03% (5 tokens) is real: it's what the provider generates between the gateway closing a stream and the provider noticing. Reserving <span class="mono">max_tokens</span> never overshoots, but it holds the full cap for every in-flight stream, so about 4% of each budget can never be used.</p>
+
+  <div class="two">
+    <div class="card"><div class="step">Latency overhead · open-loop · one laptop</div>
+      <table style="margin-top:12px"><thead><tr><th>Load</th><th class="num">Added p50</th><th class="num">Added p99</th></tr></thead><tbody>
+        <tr><td>1,000 req/s</td><td class="num">+1.1 ms</td><td class="num">+1.2 ms</td></tr>
+        <tr><td>2,500 req/s</td><td class="num">+1.6 ms</td><td class="num">+3.2 ms</td></tr>
+        <tr><td>1,000 req/s, streaming</td><td class="num">+1.9 ms</td><td class="num">+3.0 ms</td></tr>
+      </tbody></table>
+      <p class="note">Five Python workers saturate between 2,500 and 5,000 req/s on a 12-thread laptop shared with the load generator, mock upstream and Redis.</p></div>
+    <div class="card"><div class="step">Failover · 200 streaming req/s</div>
+      <table style="margin-top:12px"><thead><tr><th>Primary upstream</th><th class="num">Failed</th></tr></thead><tbody>
+        <tr><td>Returns 503 for 7 s</td><td class="num">0 / 4,000</td></tr>
+        <tr><td>Killed with SIGKILL</td><td class="num">26 / 4,000</td></tr>
+      </tbody></table>
+      <p class="note">All 26 were streams already sending bytes from the killed process, which no gateway can retry. Every request sent after the kill succeeded.</p></div>
+  </div>
+  <p class="note" style="margin-top:22px">Raw results, machine specs and every parameter are <a href="https://github.com/saikirankalidindi/hardcap/tree/main/bench/results">in the repo</a>. Rerun any benchmark with one command.</p>
+</div></section>
+
+<section id="features"><div class="wrap">
+  <span class="label">What's in v0.1</span>
+  <h2>A small gateway that does one hard thing well.</h2>
+  <div class="features">
+    <div><h3>Per-tenant token budgets</h3><p>Input, output and total limits per window, enforced across stateless replicas.</p></div>
+    <div><h3>Rate limits in the same script</h3><p>Sliding-window counter or token bucket, checked atomically with the budget.</p></div>
+    <div><h3>Busy vs. spent</h3><p><span class="mono">budget_busy</span> (retry in 1 s) is kept separate from <span class="mono">budget_exceeded</span> (retry when the window resets).</p></div>
+    <div><h3>Fallback and circuit breakers</h3><p>Ordered fallback on 429, 5xx, timeouts and connection errors, with a breaker per upstream.</p></div>
+    <div><h3>OpenAI and Anthropic</h3><p>An OpenAI-compatible API in front of OpenAI, vLLM and other compatible servers, plus Anthropic, translated both ways.</p></div>
+    <div><h3>Cost attribution</h3><p>Prometheus metrics per tenant, route and model, plus a ready-made Grafana dashboard.</p></div>
+  </div>
+  <div class="two">
+    <div class="card fit"><h3>Use Hardcap when</h3><ul>
+      <li><b>Several teams or customers share one LLM bill</b> and a budget has to mean a hard limit.</li>
+      <li><b>You run more than one gateway replica</b> and need limits that hold across all of them.</li>
+      <li><b>You want to see the evidence</b> and rerun it on your own hardware.</li></ul></div>
+    <div class="card fit"><h3>Look elsewhere when</h3><ul>
+      <li><b>You need 100+ providers</b> behind one API: <a href="https://github.com/BerriAI/litellm">LiteLLM</a> covers far more.</li>
+      <li><b>You need raw throughput above a few thousand req/s per node</b>: v0.1 is Python.</li>
+      <li><b>You need an admin UI or hosted service.</b> Hardcap is config files and metrics.</li></ul></div>
+  </div>
+</div></section>
+
+<section id="quickstart"><div class="wrap">
+  <span class="label">Quickstart</span>
+  <h2>Running in a minute, no API key needed.</h2>
+  <p class="intro">The built-in mock LLM lets you try budgets, truncation and fallback locally. Then point any OpenAI SDK at Hardcap and use a tenant key as the API key.</p>
+  <div class="two">
+<pre><span class="c"># install and run against the mock LLM</span>
+<span class="k">pip install</span> hardcap
+<span class="k">docker run</span> -d -p 6379:6379 redis:7-alpine
+<span class="k">curl</span> -sO https://raw.githubusercontent.com/saikirankalidindi/hardcap/main/examples/local.yaml
+<span class="k">hardcap mock</span> --port 9001 &amp;
+<span class="k">hardcap serve</span> -c local.yaml</pre>
+<pre><span class="c"># any OpenAI client works</span>
+<span class="k">from</span> openai <span class="k">import</span> OpenAI
+
+client = OpenAI(base_url=<span class="g">"http://localhost:8080/v1"</span>,
+                api_key=<span class="g">"sk-alpha"</span>)  <span class="c"># a tenant key</span>
+client.chat.completions.create(
+    model=<span class="g">"demo"</span>, stream=<span class="k">True</span>,
+    messages=[{<span class="g">"role"</span>: <span class="g">"user"</span>, <span class="g">"content"</span>: <span class="g">"hi"</span>}])</pre>
+  </div>
+<pre><span class="c"># config.yaml: one tenant, one route with fallback</span>
+<span class="k">budget</span>: {accounting: reserve, estimator: p95, on_overrun: truncate}
+<span class="k">upstreams</span>:
+  openai:    {kind: openai, base_url: https://api.openai.com, api_key_env: OPENAI_API_KEY}
+  anthropic: {kind: anthropic, base_url: https://api.anthropic.com, api_key_env: ANTHROPIC_API_KEY}
+<span class="k">routes</span>:
+  default: {targets: [{upstream: openai, model: gpt-4o-mini}, {upstream: anthropic, model: claude-haiku-4-5}]}
+<span class="k">tenants</span>:
+  search-team: {api_keys: [sk-hc-search], budget: {window_s: 3600, total: 2000000}}</pre>
+  <div class="cta" style="margin-top:28px">
+    <a class="btn primary" href="https://github.com/saikirankalidindi/hardcap#quickstart">Read the docs</a>
+    <a class="btn" href="https://github.com/saikirankalidindi/hardcap/blob/main/docs/design.md">Design notes &amp; limitations</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <span>Hardcap · Apache-2.0 · built by <a href="https://saikirankalidindi.com">Sai Kiran Kalidindi</a></span>
+  <span><a href="https://github.com/saikirankalidindi/hardcap">GitHub</a> · <a href="https://github.com/saikirankalidindi/hardcap/blob/main/docs/blog/token-budgets-that-hold.md">Write-up</a> · <a href="https://github.com/saikirankalidindi/hardcap/issues">Issues</a></span>
+</div></footer>
+
+<script>
+// Copy buttons
+document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1400); } catch {}
+}));
+
+// Benchmark replay: meters scale to 350% of budget so the overshoot is visible.
+const SCALE = 350, A = 334.3, B = 100.03;
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+for (const id of ["limA", "limB"]) document.getElementById(id).style.left = (100 / SCALE * 100) + "%";
+function replay() {
+  const t0 = performance.now(), dur = reduce ? 1 : 2600;
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  function frame(now) {
+    const p = Math.min(1, (now - t0) / dur), e = ease(p);
+    // Both lanes consume at the same rate until Hardcap hits its budget; the typical gateway keeps going.
+    const a = A * e, b = Math.min(B, A * e);
+    document.getElementById("fillA").style.width = (a / SCALE * 100) + "%";
+    document.getElementById("fillB").style.width = (b / SCALE * 100) + "%";
+    document.getElementById("numA").innerHTML = a.toFixed(a > 99 ? 0 : 1) + "%<small>of budget</small>";
+    document.getElementById("numB").innerHTML = (b >= B ? B.toFixed(2) : b.toFixed(1)) + "%<small>of budget</small>";
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+document.getElementById("replayBtn").addEventListener("click", replay);
+new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { replay(); o.disconnect(); } }, {threshold: .4})
+  .observe(document.querySelector(".replay"));
+
+// Overshoot chart (data: bench/results/overshoot.json summary)
+const DATA = {"posthoc": [[1, 4.31, 100.0], [4, 10.995, 100.0], [16, 41.535, 100.0], [64, 128.47, 100.0], [128, 234.33, 100.0]], "reserve_max_tokens": [[1, -0.715, 95.6], [4, -1.7, 95.69], [16, -2.265, 95.5], [64, -0.985, 95.47], [128, -2.385, 95.59]], "reserve_p95_allow": [[1, -0.445, 97.62], [4, 2.14, 97.87], [16, 0.965, 98.44], [64, 3.905, 98.58], [128, 7.88, 98.69]], "reserve_p95_truncate": [[1, -0.025, 98.04], [4, 0.005, 98.3], [16, -0.085, 98.49], [64, -0.175, 98.5], [128, 0.025, 98.74]]};
+const SERIES = [
+  ["posthoc", "Count after the fact", "#3987e5"],
+  ["reserve_max_tokens", "Reserve max_tokens", "#d95926"],
+  ["reserve_p95_allow", "Reserve p95, allow", "#199e70"],
+  ["reserve_p95_truncate", "Reserve p95, truncate (Hardcap)", "#c98500"],
+];
+const XS = [1, 4, 16, 64, 128];
+const svg = document.getElementById("chart"), tip = document.getElementById("tip");
+const W = 1040, H = 380, m = {l: 64, r: 120, t: 20, b: 44};
+const NS = "http://www.w3.org/2000/svg";
+document.getElementById("legend").innerHTML = SERIES.map(([, n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join("");
+const x = v => m.l + (Math.log2(v) / Math.log2(128)) * (W - m.l - m.r);
+function el(tag, attrs, text) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; }
+function draw(metric) {
+  svg.innerHTML = "";
+  const [lo, hi, step, fmt] = metric === 1 ? [-20, 250, 50, v => (v > 0 ? "+" : "") + v + "%"] : [90, 101, 2, v => v + "%"];
+  const y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    el("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: v === 0 && metric === 1 ? "#383835" : "#2c2c2a", "stroke-width": 1});
+    el("text", {x: m.l - 10, y: y(v) + 4, "text-anchor": "end", fill: "#898781", "font-size": 12, "font-family": "GeistMono, monospace"}, fmt(v));
+  }
+  XS.forEach(v => el("text", {x: x(v), y: H - m.b + 22, "text-anchor": "middle", fill: "#898781", "font-size": 12, "font-family": "GeistMono, monospace"}, v));
+  el("text", {x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle", fill: "#898781", "font-size": 12}, "concurrent streams per tenant");
+  SERIES.forEach(([k, name, c]) => {
+    const pts = DATA[k].map(r => [x(r[0]), y(Math.max(lo, Math.min(hi, r[metric])))]);
+    el("path", {d: "M" + pts.map(p => p.join(",")).join("L"), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round"});
+    pts.forEach(p => el("circle", {cx: p[0], cy: p[1], r: 4, fill: c, stroke: "#1a1a19", "stroke-width": 2}));
+  });
+  if (metric === 1) {
+    const last = k => DATA[k][4][1];
+    el("text", {x: x(128) + 10, y: y(last("posthoc")) + 4, fill: "#f5f5f2", "font-size": 13, "font-family": "GeistMono, monospace"}, "+234%");
+    el("text", {x: x(128) + 10, y: y(0) + 16, fill: "#f5f5f2", "font-size": 13, "font-family": "GeistMono, monospace"}, "+0.03%");
+  }
+  const cross = el("line", {x1: 0, x2: 0, y1: m.t, y2: H - m.b, stroke: "#898781", "stroke-width": 1, opacity: 0});
+  const hit = el("rect", {x: m.l - 20, y: m.t, width: W - m.l - m.r + 40, height: H - m.t - m.b, fill: "transparent"});
+  hit.addEventListener("mousemove", ev => {
+    const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * W / r.width;
+    const i = XS.reduce((b, v, j) => Math.abs(x(v) - sx) < Math.abs(x(XS[b]) - sx) ? j : b, 0);
+    cross.setAttribute("x1", x(XS[i])); cross.setAttribute("x2", x(XS[i])); cross.setAttribute("opacity", .5);
+    tip.innerHTML = `<div class="label">${XS[i]} streams / tenant</div>` + SERIES.map(([k, n, c]) => {
+      const v = DATA[k][i][metric];
+      return `<div class="row"><span><i style="display:inline-block;width:10px;height:3px;background:${c};margin-right:6px;vertical-align:middle"></i>${n}</span><b>${metric === 1 ? (v > 0 ? "+" : "") + v.toFixed(2) : v.toFixed(1)}%</b></div>`;
+    }).join("");
+    const card = svg.parentElement.getBoundingClientRect(), px = ev.clientX - card.left, py = ev.clientY - card.top;
+    tip.style.left = Math.min(px + 16, card.width - 260) + "px"; tip.style.top = (py + 12) + "px"; tip.style.opacity = 1;
+  });
+  hit.addEventListener("mouseleave", () => { tip.style.opacity = 0; cross.setAttribute("opacity", 0); });
+}
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach(o => o.setAttribute("aria-pressed", o === b));
+  draw(+b.dataset.metric);
+}));
+draw(1);
+</script>
+</body>
+</html>

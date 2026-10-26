@@ -7,9 +7,9 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import TestServer
 
-from flowgate.app import Gateway
-from flowgate.config import parse_config
-from flowgate.mock.server import MockLLM, MockSettings
+from hardcap.app import Gateway
+from hardcap.config import parse_config
+from hardcap.mock.server import MockLLM, MockSettings
 
 from .conftest import REDIS_URL
 
@@ -131,7 +131,7 @@ async def test_truncate_mode_stops_stream_at_budget(gateway):
         chunks = await read_sse(r)
     got = content_tokens(chunks)
     assert got <= 100
-    finals = [c for c in chunks if c != "DONE" and c.get("flowgate")]
+    finals = [c for c in chunks if c != "DONE" and c.get("hardcap")]
     assert finals and finals[0]["choices"][0]["finish_reason"] == "length"
     await asyncio.sleep(0.05)
     u = await gw.ledger.usage(gw.cfg.tenants["acme"])
@@ -185,7 +185,7 @@ async def test_fallback_on_5xx_and_breaker_opens(gateway):
     for _ in range(4):
         async with s.post("/v1/chat/completions", json=chat(n=3)) as r:
             assert r.status == 200
-            assert r.headers["x-flowgate-upstream"] == "b"
+            assert r.headers["x-hardcap-upstream"] == "b"
     assert gw.router.breakers["a"].state == "open"
     assert mocks["b"][0].stats["acme"]["requests"] == 4
 
@@ -194,7 +194,7 @@ async def test_fallback_on_connection_refused(gateway):
     gw, s, mocks = await gateway(mocks={"a": ("openai", FAST), "b": ("openai", FAST)})
     await mocks["a"][1].close()
     async with s.post("/v1/chat/completions", json=chat(n=3, stream=True)) as r:
-        assert r.status == 200 and r.headers["x-flowgate-upstream"] == "b"
+        assert r.status == 200 and r.headers["x-hardcap-upstream"] == "b"
         assert content_tokens(await read_sse(r)) == 3
 
 
@@ -229,8 +229,8 @@ async def test_metrics_and_usage_endpoints(gateway):
         assert r.status == 200
     async with s.get("/metrics") as r:
         text = await r.text()
-    assert 'flowgate_tokens_total{direction="output",model="x",route="m",tenant="acme"}' in text
-    assert "flowgate_cost_usd_total" in text
-    async with s.get("/v1/flowgate/usage") as r:
+    assert 'hardcap_tokens_total{direction="output",model="x",route="m",tenant="acme"}' in text
+    assert "hardcap_cost_usd_total" in text
+    async with s.get("/v1/hardcap/usage") as r:
         u = await r.json()
     assert u["used"]["output"] == 10 and u["limits"]["total"] == 1000

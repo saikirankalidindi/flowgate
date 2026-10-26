@@ -1,4 +1,4 @@
-# Minimal FlowGate config. Every key not shown has a default; see src/flowgate/config.py.
+# Minimal Hardcap config. Every key not shown has a default; see src/hardcap/config.py.
 listen: {host: 0.0.0.0, port: 8080}
 redis_url: redis://localhost:6379/0
 
@@ -16,7 +16,7 @@ upstreams:
   vllm:      {kind: openai, base_url: http://vllm:8000}
 
 routes:
-  # Clients ask for "default"; FlowGate tries each target in order on 429 / 5xx / timeout.
+  # Clients ask for "default"; Hardcap tries each target in order on 429 / 5xx / timeout.
   default:
     targets:
       - {upstream: openai, model: gpt-4o-mini}
@@ -29,10 +29,10 @@ pricing:  # USD per 1M tokens, for cost attribution
 
 tenants:
   search-team:
-    api_keys: [sk-fg-search-change-me]
+    api_keys: [sk-hc-search-change-me]
     budget: {window_s: 3600, total: 2000000}
     rate_limit: {algorithm: sliding_window, requests: 50, per_s: 1}
   batch-jobs:
-    api_keys: [sk-fg-batch-change-me]
+    api_keys: [sk-hc-batch-change-me]
     budget: {window_s: 86400, input: 50000000, output: 10000000}
     rate_limit: {algorithm: token_bucket, requests: 20, per_s: 1, burst: 100}

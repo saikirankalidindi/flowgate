@@ -5,8 +5,8 @@
 #   Grafana: http://localhost:3000 (anonymous admin)
 x-gateway: &gateway
   build: ..
-  command: ["serve", "-c", "/etc/flowgate/config.yaml"]
-  volumes: ["./config.yaml:/etc/flowgate/config.yaml:ro"]
+  command: ["serve", "-c", "/etc/hardcap/config.yaml"]
+  volumes: ["./config.yaml:/etc/hardcap/config.yaml:ro"]
   depends_on: [redis, mock-a, mock-b]
 
 services:

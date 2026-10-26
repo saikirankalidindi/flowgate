@@ -12,10 +12,10 @@ from typing import Any
 
 import aiohttp
 
-from flowgate import metrics
-from flowgate.breaker import CircuitBreaker
-from flowgate.config import Config, Route, Target, Upstream
-from flowgate.providers import adapter_for
+from hardcap import metrics
+from hardcap.breaker import CircuitBreaker
+from hardcap.config import Config, Route, Target, Upstream
+from hardcap.providers import adapter_for
 
 
 @dataclass

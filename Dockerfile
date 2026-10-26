@@ -5,5 +5,5 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN uv pip install --system --no-cache .
 EXPOSE 8080
-ENTRYPOINT ["flowgate"]
-CMD ["serve", "-c", "/etc/flowgate/config.yaml"]
+ENTRYPOINT ["hardcap"]
+CMD ["serve", "-c", "/etc/hardcap/config.yaml"]

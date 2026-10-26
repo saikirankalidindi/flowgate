@@ -22,11 +22,11 @@ from importlib import resources
 
 import redis.asyncio as aioredis
 
-from flowgate.config import BudgetPolicy, Tenant
+from hardcap.config import BudgetPolicy, Tenant
 
 
 def _script(name: str) -> str:
-    return resources.files("flowgate").joinpath("lua", name).read_text()
+    return resources.files("hardcap").joinpath("lua", name).read_text()
 
 
 @dataclass
@@ -45,7 +45,7 @@ class Admission:
 
 
 class BudgetLedger:
-    def __init__(self, client: aioredis.Redis, policy: BudgetPolicy, prefix: str = "fg"):
+    def __init__(self, client: aioredis.Redis, policy: BudgetPolicy, prefix: str = "hardcap"):
         self.r = client
         self.policy = policy
         self.prefix = prefix

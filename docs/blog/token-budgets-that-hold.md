@@ -2,7 +2,7 @@
 title: "Your LLM gateway's token budget is a suggestion"
 subtitle: "Counting tokens after the response lets a tenant spend 3.3× its budget. Reserving them first holds it to 0.03%."
 tags: [llm, distributed-systems, redis, rate-limiting, open-source]
-canonical: https://github.com/saikirankalidindi/flowgate
+canonical: https://github.com/saikirankalidindi/hardcap
 ---
 
 # Your LLM gateway's token budget is a suggestion
@@ -16,10 +16,10 @@ With 128 streams in flight per tenant, spread across three gateway replicas, the
 implementation let a tenant spend **3.3× its budget**. The approach this post describes held
 the same tenant to **0.03%** over: 5 tokens on a 20,000-token budget.
 
-![Budget overshoot vs concurrency](https://raw.githubusercontent.com/saikirankalidindi/flowgate/main/docs/img/overshoot.png)
+![Budget overshoot vs concurrency](https://raw.githubusercontent.com/saikirankalidindi/hardcap/main/docs/img/overshoot.png)
 
 The code, the benchmark and the raw results are open source:
-[github.com/saikirankalidindi/flowgate](https://github.com/saikirankalidindi/flowgate).
+[github.com/saikirankalidindi/hardcap](https://github.com/saikirankalidindi/hardcap).
 
 ## Why request limits don't work for LLMs
 
@@ -75,7 +75,7 @@ tenant's clients saw roughly 2,900 "come back later" rejections.
 
 **Reserve a small fixed number.** It's efficient, until a long response blows straight past it.
 
-FlowGate reserves the **rolling p95** of real output lengths for that route (the last 1,000
+Hardcap reserves the **rolling p95** of real output lengths for that route (the last 1,000
 completed responses) and treats the 5% tail as an *extension* problem. As a stream gets within
 32 tokens of its reservation, the gateway asks Redis for 64 more. If the budget can't cover them,
 there are two policies:
@@ -154,7 +154,7 @@ A budget gateway also has to route around a failing provider. With a primary →
   already in flight on the killed process. Once bytes have reached the client, no gateway can
   retry transparently. Every request sent after the kill succeeded.
 
-![Failover timeline](https://raw.githubusercontent.com/saikirankalidindi/flowgate/main/docs/img/failover.png)
+![Failover timeline](https://raw.githubusercontent.com/saikirankalidindi/hardcap/main/docs/img/failover.png)
 
 ## What I'd tell someone building this
 
@@ -170,4 +170,4 @@ A budget gateway also has to route around a failing provider. With a primary →
 
 Everything here reproduces with one command per benchmark. The raw JSON, the machine specs and the
 parameters are committed next to the charts:
-**[github.com/saikirankalidindi/flowgate](https://github.com/saikirankalidindi/flowgate)**.
+**[github.com/saikirankalidindi/hardcap](https://github.com/saikirankalidindi/hardcap)**.

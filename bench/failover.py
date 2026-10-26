@@ -49,7 +49,7 @@ async def one(s: aiohttp.ClientSession, due: float, t0: float) -> dict:
     try:
         async with s.post(f"http://127.0.0.1:{GW}/v1/chat/completions", json=body,
                           headers={"authorization": "Bearer t"}) as r:
-            rec["upstream"] = r.headers.get("x-flowgate-upstream")
+            rec["upstream"] = r.headers.get("x-hardcap-upstream")
             if r.status != 200:
                 rec["outcome"] = f"http_{r.status}"
                 await r.read()

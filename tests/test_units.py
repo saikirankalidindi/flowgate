@@ -1,8 +1,8 @@
 import pytest
 
-from flowgate.breaker import CircuitBreaker
-from flowgate.config import BudgetPolicy, ConfigError, parse_config
-from flowgate.estimator import OutputEstimator, estimate_input_tokens
+from hardcap.breaker import CircuitBreaker
+from hardcap.config import BudgetPolicy, ConfigError, parse_config
+from hardcap.estimator import OutputEstimator, estimate_input_tokens
 
 
 def test_p95_estimator_warms_up_then_tracks_tail():

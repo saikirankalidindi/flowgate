@@ -1,4 +1,4 @@
-# FlowGate design notes
+# Hardcap design notes
 
 ## The problem in one paragraph
 
@@ -67,7 +67,7 @@ a spent budget forever.
 
 * **Replica crash mid-stream:** its reservations expire after `reservation_ttl_s` (default 120 s)
   and the next admission for that tenant reclaims them. Live streams refresh their TTL every
-  `ttl/3`. The crashed stream's real usage is lost: the upstream billed it, and FlowGate never
+  `ttl/3`. The crashed stream's real usage is lost: the upstream billed it, and Hardcap never
   learns about it. That is a known gap; see limitations.
 * **Client disconnect:** the gateway closes the upstream connection (stopping generation) and
   settles the tokens counted so far.

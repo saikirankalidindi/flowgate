@@ -66,7 +66,7 @@ async def stream_one(session, url, key, max_tokens) -> tuple[str, int, bool]:
             if not line.startswith(b"data: {"):
                 continue
             c = json.loads(line[6:])
-            if c.get("flowgate"):
+            if c.get("hardcap"):
                 truncated = True
             for ch in c.get("choices") or ():
                 tokens += (ch.get("delta") or {}).get("content", "").count("tok")

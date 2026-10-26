@@ -2,7 +2,7 @@
 
 Output lengths come from a log-normal distribution (real completion lengths are heavy-tailed),
 capped at the request's max_tokens. It counts the tokens it actually wrote per tenant, using the
-x-flowgate-tenant header, which is the ground truth the overshoot benchmark checks against: a
+x-hardcap-tenant header, which is the ground truth the overshoot benchmark checks against: a
 real provider bills what it generated, not what the gateway thinks it forwarded.
 
 Per-request overrides go in a "mock" object in the request body:
@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass
 
 from aiohttp import web
 
-from flowgate.estimator import estimate_input_tokens
+from hardcap.estimator import estimate_input_tokens
 
 TOKEN = "tok "  # 4 chars = 1 token under the gateway's chars/4 counter
 
@@ -120,7 +120,7 @@ class MockLLM:
         if (f := self._fault()) is not None:
             return f
         body = await request.json()
-        tenant = request.headers.get("x-flowgate-tenant", "anon")
+        tenant = request.headers.get("x-hardcap-tenant", "anon")
         cap = int(body.get("max_completion_tokens") or body.get("max_tokens") or 4096)
         n, ttft, tpot = self._plan(body, cap)
         prompt = estimate_input_tokens(body)
@@ -160,7 +160,7 @@ class MockLLM:
         if (f := self._fault()) is not None:
             return f
         body = await request.json()
-        tenant = request.headers.get("x-flowgate-tenant", "anon")
+        tenant = request.headers.get("x-hardcap-tenant", "anon")
         cap = int(body.get("max_tokens") or 4096)
         n, ttft, tpot = self._plan(body, cap)
         msgs = list(body.get("messages") or [])

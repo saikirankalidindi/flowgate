@@ -19,7 +19,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
-REDIS_URL = os.environ.get("FLOWGATE_BENCH_REDIS", "redis://localhost:6379/1")
+REDIS_URL = os.environ.get("HARDCAP_BENCH_REDIS", "redis://localhost:6379/1")
 PY = sys.executable
 
 
@@ -58,7 +58,7 @@ class Proc:
 
 
 def mock(port: int, *, workers: int = 1, **settings) -> Proc:
-    args = [PY, "-m", "flowgate", "mock", "--port", str(port), "--workers", str(workers)]
+    args = [PY, "-m", "hardcap", "mock", "--port", str(port), "--workers", str(workers)]
     for k, v in settings.items():
         args += [f"--{k.replace('_', '-')}", str(v)]
     return Proc(args, f"http://127.0.0.1:{port}/healthz", f"mock-{port}")
@@ -68,7 +68,7 @@ def gateway(cfg: dict, port: int, *, workers: int = 1) -> Proc:
     f = tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, dir=RESULTS / "raw")
     yaml.safe_dump(cfg, f)
     f.close()
-    env_args = [PY, "-m", "flowgate", "serve", "-c", f.name, "--port", str(port),
+    env_args = [PY, "-m", "hardcap", "serve", "-c", f.name, "--port", str(port),
                 "--host", "127.0.0.1", "--workers", str(workers)]
     return Proc(env_args, f"http://127.0.0.1:{port}/healthz", f"gateway-{port}")
 

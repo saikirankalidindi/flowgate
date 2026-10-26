@@ -1,4 +1,4 @@
-"""Command line: `flowgate serve` runs the gateway, `flowgate mock` runs the mock upstream."""
+"""Command line: `hardcap serve` runs the gateway, `hardcap mock` runs the mock upstream."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ def _install_uvloop() -> None:
 def _run_gateway(config_path: str, host: str | None, port: int | None, reuse_port: bool) -> None:
     from aiohttp import web
 
-    from flowgate.app import create_app
-    from flowgate.config import load_config
+    from hardcap.app import create_app
+    from hardcap.config import load_config
 
     _install_uvloop()
     cfg = load_config(config_path)
@@ -32,7 +32,7 @@ def _run_gateway(config_path: str, host: str | None, port: int | None, reuse_por
 def _run_mock(args: argparse.Namespace, reuse_port: bool) -> None:
     from aiohttp import web
 
-    from flowgate.mock.server import MockSettings, create_mock_app
+    from hardcap.mock.server import MockSettings, create_mock_app
 
     _install_uvloop()
     s = MockSettings(ttft_ms=args.ttft_ms, tpot_ms=args.tpot_ms, median_tokens=args.median_tokens,
@@ -59,7 +59,7 @@ def _fan_out(n: int, target, *args) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="flowgate")
+    ap = argparse.ArgumentParser(prog="hardcap")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("serve", help="run the gateway")
@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> None:
     args = ap.parse_args(argv)
     if args.cmd == "serve":
         if args.workers > 1 and not os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-            os.environ["PROMETHEUS_MULTIPROC_DIR"] = tempfile.mkdtemp(prefix="flowgate-prom-")
+            os.environ["PROMETHEUS_MULTIPROC_DIR"] = tempfile.mkdtemp(prefix="hardcap-prom-")
         _fan_out(args.workers, _run_gateway, args.config, args.host, args.port)
     else:
         _fan_out(args.workers, _run_mock, args)

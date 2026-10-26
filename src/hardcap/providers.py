@@ -14,8 +14,8 @@ from typing import Any
 
 import aiohttp
 
-from flowgate.config import Upstream
-from flowgate.estimator import count_text_tokens
+from hardcap.config import Upstream
+from hardcap.estimator import count_text_tokens
 
 
 @dataclass

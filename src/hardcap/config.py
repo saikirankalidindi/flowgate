@@ -112,14 +112,14 @@ class Config:
     redis_url: str = "redis://localhost:6379/0"
     # Connections per process; requests wait for a free one rather than failing.
     redis_max_connections: int = 256
-    key_prefix: str = "fg"
+    key_prefix: str = "hardcap"
     budget: BudgetPolicy = field(default_factory=BudgetPolicy)
     breaker: Breaker = field(default_factory=Breaker)
     upstreams: dict[str, Upstream] = field(default_factory=dict)
     routes: dict[str, Route] = field(default_factory=dict)
     tenants: dict[str, Tenant] = field(default_factory=dict)
     pricing: dict[str, Price] = field(default_factory=dict)
-    # Forward the tenant name upstream as x-flowgate-tenant (useful for upstream-side attribution).
+    # Forward the tenant name upstream as x-hardcap-tenant (useful for upstream-side attribution).
     forward_tenant_header: bool = True
 
     def tenant_by_key(self) -> dict[str, Tenant]:
@@ -148,7 +148,7 @@ def parse_config(raw: dict[str, Any]) -> Config:
         port=int(listen.get("port", 8080)),
         redis_url=raw.pop("redis_url", "redis://localhost:6379/0"),
         redis_max_connections=int(raw.pop("redis_max_connections", 256)),
-        key_prefix=raw.pop("key_prefix", "fg"),
+        key_prefix=raw.pop("key_prefix", "hardcap"),
         forward_tenant_header=bool(raw.pop("forward_tenant_header", True)),
     )
     cfg.budget = _pick(BudgetPolicy, raw.pop("budget", None), "budget")
